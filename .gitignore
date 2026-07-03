@@ -1,0 +1,9 @@
+backend/.env
+backend/data/
+backend/qb_profiles/
+backend/app.log
+backend/__pycache__/
+backend/core/__pycache__/
+node_modules/
+dist/
+.DS_Store
