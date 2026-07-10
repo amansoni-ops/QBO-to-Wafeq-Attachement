@@ -15,6 +15,7 @@ export default function Sidebar({ page, setPage }) {
   const { me, setMe, companies, sel, setSel, curCompany, theme, setTheme } = useStore()
   const [open, setOpen] = useState(false)
   const c = curCompany()
+  const activeKeyName = c ? (c.wafeq_keys || []).find((k) => k.key === c.wafeq_api_key)?.name : null
   const isAdmin = me?.role === 'admin'
 
   async function logout() { await api.logout(); setMe(null); location.reload() }
@@ -22,8 +23,14 @@ export default function Sidebar({ page, setPage }) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="logo"><Ic name="transfer-in" /></div>
-        <div><h1>QBO → Wafeq</h1><p>Attachment Migration</p></div>
+        <div className="brand-logos">
+          <div className="ltile"><img className="lflip" src="/brand/qbo.png" alt="QuickBooks" /></div>
+          <div className="brand-arrow">
+            <span className="ba-line" />
+            <i className="ti ti-caret-right-filled ba-head" />
+          </div>
+          <div className="ltile"><img className="lflip d2" src="/brand/wafeq.png" alt="Wafeq" /></div>
+        </div>
       </div>
 
       <div className="side-scroll">
@@ -38,8 +45,9 @@ export default function Sidebar({ page, setPage }) {
               <Ic name={open ? 'chevron-up' : 'chevron-down'} style={{ color: 'var(--tx3)' }} />
             </div>
             {c && (
-              <div className="cc-meta">
-                {c.environment} · {(c.wafeq_keys || []).length} key(s) · {c.token_valid ? 'Live' : 'Off'}
+              <div className="co-badges">
+                <span className="cbadge qbo"><span className="cdot" />QBO Connected</span>
+                {activeKeyName && <span className="cbadge wafeq"><span className="cdot" />Wafeq: {activeKeyName}</span>}
               </div>
             )}
           </div>

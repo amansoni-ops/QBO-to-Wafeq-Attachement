@@ -52,7 +52,19 @@ export default function App() {
         <div className="topbar">
           <div><h2>{t.h}</h2><div className="sub">{t.sub}</div></div>
           <div className="spacer" />
-          {c && <span className="env-badge"><Ic name="briefcase" /> {c.name}</span>}
+          {c && (
+            <span className="env-badge">
+              <Ic name="briefcase" /> {c.name}
+              {(() => {
+                const k = (c.wafeq_keys || []).find((x) => x.key === c.wafeq_api_key)
+                return k ? <span style={{ opacity: .7 }}> · Wafeq: {k.name}</span> : null
+              })()}
+            </span>
+          )}
+          <div className="topbar-mmc">
+            <div className="mtile"><img src="/brand/mmc.png" alt="MMC Convert" /></div>
+            <span>by MMC<br />Convert</span>
+          </div>
         </div>
         <div className="content"><Page /></div>
       </main>

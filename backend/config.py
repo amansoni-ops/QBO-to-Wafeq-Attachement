@@ -52,7 +52,7 @@ QB_BASE_URLS = {
     "production": "https://quickbooks.api.intuit.com",
 }
 QB_BASE_URL  = QB_BASE_URLS[ENVIRONMENT]
-QB_PAGE_SIZE = 1000
+QB_PAGE_SIZE = 100
 
 # ===========================================================================
 # Flask

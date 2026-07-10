@@ -80,9 +80,10 @@ export function StoreProvider({ children }) {
     if (m) { const a = +m[1], b = +m[2]; if (b > 0) return Math.min(100, (a / b) * 100) }
     return null
   }
-const stopStream = useCallback(() => {
+
+  const stopStream = useCallback(() => {
     if (esRef.current) { esRef.current.close(); esRef.current = null }
-    if (running) { setPhase(running, { state: 'idle', pct: 0, lines: 0 }); pushLog(running, '⏹ Stopped by user', 'warn') }
+    if (running) { setPhase(running, { state: 'idle' }); pushLog(running, '⏹ Stopped by user', 'warn') }
     setRunning(null); setMode(null)
   }, [running, setPhase, pushLog, setMode])
 
@@ -114,10 +115,10 @@ const stopStream = useCallback(() => {
       else softPct = Math.min(92, softPct + 3)
       setPhase(phase, { lines, pct: softPct })
     }
-es.onerror = () => {
+    es.onerror = () => {
       if (esRef.current) { es.close(); esRef.current = null }
       setRunning(null); setMode(null)
-      setPhase(phase, { state: 'err', pct: 0, lines })
+      setPhase(phase, { state: 'err' })
       pushLog(phase, '✖ Connection error / stream ended', 'err')
       resolve(false)
     }

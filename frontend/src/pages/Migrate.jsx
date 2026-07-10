@@ -66,6 +66,9 @@ export default function Migrate() {
     if (clear) params.clear = '1'
     await runPhase(1, api.fetchUrl(sel, params)); loadStats()
   }
+  async function retryDownloads() {
+    await runPhase(1, api.fetchUrl(sel, { retry_downloads: '1' })); loadStats()
+  }
   async function doMatch() {
     if (!hasKey) return toast('Set a Wafeq API key first (Companies page)', 'err')
     await runPhase(2, api.matchUrl(sel)); loadStats()
@@ -87,19 +90,19 @@ export default function Migrate() {
   return (
     <div className="wrap">
       <div className="statgrid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 14 }}>
-        <div className="stat">
+        <div className="stat b-indigo">
           <span className="sic ico-indigo"><Ic name="receipt" /></span>
           <div className="stxt"><b>{stats.total}</b><span>Txns</span></div>
         </div>
-        <div className="stat">
+        <div className="stat b-blue">
           <span className="sic ico-blue"><Ic name="paperclip" /></span>
           <div className="stxt"><b>{stats.files}</b><span>Files</span></div>
         </div>
-        <div className="stat">
+        <div className="stat b-green">
           <span className="sic ico-green"><Ic name="git-compare" /></span>
           <div className="stxt"><b style={{ color: 'var(--success)' }}>{stats.matched}</b><span>Matched</span></div>
         </div>
-        <div className="stat">
+        <div className="stat b-purple">
           <span className="sic ico-purple"><Ic name="cloud-upload" /></span>
           <div className="stxt"><b style={{ color: 'var(--accent)' }}>{stats.uploaded}</b><span>Uploaded</span></div>
         </div>
@@ -188,8 +191,13 @@ export default function Migrate() {
                         <Ic name="player-play" /> {p.title}
                       </button>
                       {p.n === 1 && (
-                        <button className="pbtn pbtn-alt" disabled={!!running}
-                          title="Clear index & fetch fresh" onClick={() => doFetch(true)}><Ic name="refresh" /></button>
+                        <>
+                          <button className="pbtn pbtn-alt" disabled={!!running}
+                            title="Clear index & fetch fresh" onClick={() => doFetch(true)}><Ic name="refresh" /></button>
+                          <button className="pbtn pbtn-alt" disabled={!!running}
+                            style={{ '--pc': 'var(--warn)' }} title="Retry failed downloads only"
+                            onClick={retryDownloads}><Ic name="rotate-clockwise" /></button>
+                        </>
                       )}
                       {p.n === 3 && (
                         <button className="pbtn pbtn-alt" disabled={!!running} title="Retry failed only"

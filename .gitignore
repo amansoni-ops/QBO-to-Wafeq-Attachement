@@ -12,3 +12,6 @@ venv/
 backend/frontend_dist/
 backend/downloads/
 *.pyc
+frontend/frontend_dist_prebuilt/
+frontend/public/
+frontend/dist/

@@ -38,7 +38,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from config import QB_BASE_URL, QB_PAGE_SIZE
 from core.auth import get_access_token
-from core.storage import save_index, save_attachment_file, upsert_company
+from core.storage import save_index, load_index, save_attachment_file, upsert_company
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def _qb_headers(access_token: str) -> dict:
 
 # ── Download file from S3 ──────────────────────────────────────────────────────
 
-def _download_file(uri: str, file_name: str, emit) -> bytes | None:
+def _download_file(uri: str, file_name: str, emit, refresh_uri_fn=None) -> bytes | None:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             emit(f"    Downloading {file_name} (attempt {attempt})...", "info")
@@ -114,6 +114,16 @@ def _download_file(uri: str, file_name: str, emit) -> bytes | None:
             resp.raise_for_status()
             emit(f"    ✓ Downloaded {file_name} ({len(resp.content)//1024}KB)", "ok")
             return resp.content
+        except requests.HTTPError as e:
+            if resp.status_code == 401 and refresh_uri_fn and attempt < MAX_RETRIES:
+                emit(f"    ↻ URL expired, fetching fresh download link...", "warn")
+                new_uri = refresh_uri_fn()
+                if new_uri:
+                    uri = new_uri
+                    continue
+            emit(f"    ✕ Attempt {attempt}/{MAX_RETRIES} failed: {e}", "warn")
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_DELAY)
         except requests.RequestException as e:
             emit(f"    ✕ Attempt {attempt}/{MAX_RETRIES} failed: {e}", "warn")
             if attempt < MAX_RETRIES:
@@ -154,7 +164,7 @@ def _fetch_attachables_with_download(
     total_att   = 0
     dl_ok       = 0
     dl_fail     = 0
-    unique_txns: set = set()
+    all_unique_txns: set = set()   # across all passes, for final reporting only
 
     # QB Attachable WHERE clause sirf single type support karta hai
     # Multiple types ke liye alag alag passes
@@ -165,6 +175,7 @@ def _fetch_attachables_with_download(
 
     for pass_types in fetch_passes:
         pass_allowed = pass_types or allowed
+        unique_txns: set = set()   # per-type limit — resets for every selected type
         start_pos    = 1
         page_num     = 0
 
@@ -225,13 +236,14 @@ def _fetch_attachables_with_download(
                     if not temp_uri:
                         continue
 
-                    # Limit check
+                    # Limit check — per selected type, not global
                     if txn_limit and txn_id not in unique_txns and len(unique_txns) >= txn_limit:
-                        emit(f"  Limit {txn_limit} reached — skipping further transactions", "warn")
+                        emit(f"  Limit {txn_limit} reached for {entity_type} — moving to next type", "warn")
                         limit_reached = True
                         break
 
                     unique_txns.add(txn_id)
+                    all_unique_txns.add(txn_id)
                     total_att += 1
                     file_name  = a.get("FileName") or "attachment"
                     size       = a.get("Size") or a.get("FileSize") or 0
@@ -242,7 +254,22 @@ def _fetch_attachables_with_download(
                         "info"
                     )
 
-                    file_bytes = _download_file(temp_uri, file_name, emit)
+                    attachable_id = a.get("Id")
+
+                    def _refresh_temp_uri(_attachable_id=attachable_id):
+                        try:
+                            r = requests.get(
+                                f"{QB_BASE_URL}/v3/company/{realm_id}/attachable/{_attachable_id}",
+                                headers=headers,
+                                params={"minorversion": "65"},
+                                timeout=30,
+                            )
+                            r.raise_for_status()
+                            return r.json().get("Attachable", {}).get("TempDownloadUri")
+                        except requests.RequestException:
+                            return None
+
+                    file_bytes = _download_file(temp_uri, file_name, emit, refresh_uri_fn=_refresh_temp_uri)
 
                     if file_bytes is None:
                         dl_fail   += 1
@@ -275,7 +302,7 @@ def _fetch_attachables_with_download(
                     break
 
             if limit_reached or (txn_limit and len(unique_txns) >= txn_limit):
-                emit(f"  Limit {txn_limit} reached — stopping Attachable fetch", "warn")
+                emit(f"  Limit {txn_limit} reached for this type — moving to next type", "warn")
                 break
 
             if len(page_records) < QB_PAGE_SIZE:
@@ -291,7 +318,7 @@ def _fetch_attachables_with_download(
 
     emit(
         f"═══ Phase A complete ═══ "
-        f"Transactions: {len(unique_txns)} | Attachments: {total_att} | "
+        f"Transactions: {len(all_unique_txns)} | Attachments: {total_att} | "
         f"✓ Downloaded: {dl_ok} | ✕ Failed: {dl_fail}",
         "ok"
     )
@@ -597,3 +624,76 @@ def fetch_and_store(
         "ok"
     )
     return index
+
+
+# ── Retry only failed downloads (no re-fetch from QB) ──────────────────────────
+
+def retry_failed_downloads(realm_id: str, emit=lambda *a: None) -> dict:
+    """
+    Scans the existing index.json for attachments with download_status == "failed",
+    fetches a fresh TempDownloadUri for each via the Attachable endpoint, and
+    retries the download. Does NOT re-query QuickBooks for transaction lists —
+    only targets the specific attachments that previously failed.
+    """
+    access_token = get_access_token(realm_id)
+    headers = _qb_headers(access_token)
+    idx = load_index(realm_id)
+    bills = idx.get("bills", {})
+
+    failed_items = []
+    for bill_id, bill in bills.items():
+        for att in bill.get("attachments", []):
+            if att.get("download_status") == "failed":
+                failed_items.append((bill_id, att))
+
+    total = len(failed_items)
+    emit(f"═══ Retry Failed Downloads ═══ {total} file(s) to retry", "info")
+
+    if total == 0:
+        emit("No failed downloads found — nothing to retry.", "ok")
+        return idx
+
+    fixed = 0
+    still_failed = 0
+
+    for i, (bill_id, att) in enumerate(failed_items, 1):
+        attachable_id = att.get("attachable_id")
+        file_name     = att.get("file_name") or "attachment"
+        emit(f"  [{i}/{total}] Retrying {file_name} (bill={bill_id})...", "info")
+
+        def _refresh_temp_uri(_attachable_id=attachable_id):
+            try:
+                r = requests.get(
+                    f"{QB_BASE_URL}/v3/company/{realm_id}/attachable/{_attachable_id}",
+                    headers=headers,
+                    params={"minorversion": "65"},
+                    timeout=30,
+                )
+                r.raise_for_status()
+                return r.json().get("Attachable", {}).get("TempDownloadUri")
+            except requests.RequestException:
+                return None
+
+        fresh_uri = _refresh_temp_uri()
+        if not fresh_uri:
+            emit(f"    ✕ Could not get fresh link for {file_name}", "err")
+            still_failed += 1
+            continue
+
+        file_bytes = _download_file(fresh_uri, file_name, emit, refresh_uri_fn=_refresh_temp_uri)
+
+        if file_bytes is None:
+            still_failed += 1
+            continue
+
+        local_file = save_attachment_file(realm_id, bill_id, attachable_id, file_name, file_bytes)
+        att["local_file"]      = local_file
+        att["download_status"] = "success"
+        fixed += 1
+
+    save_index(realm_id, idx)
+    emit(
+        f"═══ Retry complete ═══ Fixed: {fixed} | Still failed: {still_failed}",
+        "ok"
+    )
+    return idx

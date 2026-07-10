@@ -405,17 +405,20 @@ def api_fetch(realm_id: str):
       ?date_to=YYYY-MM-DD   → filter transactions up to this date
       ?types=Bill,Invoice   → comma-separated entity types to fetch
                               (blank = all supported types)
+      ?retry_downloads=1    → skip full re-fetch; only retry attachments whose
+                              download previously failed (fast, targeted)
     """
     import queue
-    from core.fetcher import fetch_and_store, SUPPORTED_ENTITY_TYPES
+    from core.fetcher import fetch_and_store, retry_failed_downloads, SUPPORTED_ENTITY_TYPES
     from core.storage import clear_index
 
-    limit      = request.args.get("limit", "").strip()
-    clear      = request.args.get("clear", "0") == "1"
-    date_from  = request.args.get("date_from", "").strip() or None
-    date_to    = request.args.get("date_to", "").strip()   or None
-    types_raw  = request.args.get("types", "").strip()
-    bill_limit = int(limit) if limit.isdigit() and int(limit) > 0 else None
+    limit           = request.args.get("limit", "").strip()
+    clear           = request.args.get("clear", "0") == "1"
+    date_from       = request.args.get("date_from", "").strip() or None
+    date_to         = request.args.get("date_to", "").strip()   or None
+    types_raw       = request.args.get("types", "").strip()
+    retry_downloads = request.args.get("retry_downloads", "0") == "1"
+    bill_limit      = int(limit) if limit.isdigit() and int(limit) > 0 else None
 
     # Parse entity type filter — validate against known types
     entity_types = None
@@ -425,7 +428,7 @@ def api_fetch(realm_id: str):
         if not entity_types:
             entity_types = None  # invalid filter → fetch all
 
-    if clear:
+    if clear and not retry_downloads:
         clear_index(realm_id)
 
     q = queue.Queue()
@@ -435,9 +438,12 @@ def api_fetch(realm_id: str):
 
     def run():
         try:
-            fetch_and_store(realm_id, progress_cb=progress, bill_limit=bill_limit,
-                            date_from=date_from, date_to=date_to,
-                            entity_types=entity_types)
+            if retry_downloads:
+                retry_failed_downloads(realm_id, emit=progress)
+            else:
+                fetch_and_store(realm_id, progress_cb=progress, bill_limit=bill_limit,
+                                date_from=date_from, date_to=date_to,
+                                entity_types=entity_types)
         except Exception as e:
             q.put({"msg": f"ERROR: {e}", "type": "err"})
         finally:
