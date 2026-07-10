@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useStore } from './lib/store'
 import { Toasts, Ic } from './components/ui'
 import Sidebar from './components/Sidebar'
@@ -10,7 +10,7 @@ import Admin from './pages/Admin'
 import Settings from './pages/Settings'
 
 const TITLES = {
-  migrate: { h: 'Migrate', sub: 'Fetch → Match → Upload attachments' },
+  migrate: { h: 'Migrate', sub: 'Fetch â†’ Match â†’ Upload attachments' },
   companies: { h: 'Companies', sub: 'QuickBooks connections & Wafeq keys' },
   report: { h: 'Report', sub: 'Migration summary & breakdown' },
   admin: { h: 'Admin', sub: 'Users & audit log' },
@@ -36,7 +36,7 @@ export default function App() {
   if (booting) {
     return <div style={{ display: 'grid', placeItems: 'center', height: '100vh', color: 'var(--tx3)' }}>
       <div style={{ textAlign: 'center' }}><Ic name="loader-2" className="spin" style={{ fontSize: 32 }} />
-        <div style={{ marginTop: 10 }}>Loading…</div></div></div>
+        <div style={{ marginTop: 10 }}>Loadingâ€¦</div></div></div>
   }
   if (!me) return <><Login /><Toasts /></>
 
@@ -57,12 +57,12 @@ export default function App() {
               <Ic name="briefcase" /> {c.name}
               {(() => {
                 const k = (c.wafeq_keys || []).find((x) => x.key === c.wafeq_api_key)
-                return k ? <span style={{ opacity: .7 }}> · Wafeq: {k.name}</span> : null
+                return k ? <span style={{ opacity: .7 }}> Â· Wafeq: {k.name}</span> : null
               })()}
             </span>
           )}
           <div className="topbar-mmc">
-            <div className="mtile"><img src="/brand/mmc.png" alt="MMC Convert" /></div>
+            <div className="mtile"><img src={import.meta.env.BASE_URL + "brand/mmc.png"} alt="MMC Convert" /></div>
             <span>by MMC<br />Convert</span>
           </div>
         </div>

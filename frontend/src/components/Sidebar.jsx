@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { api } from '../lib/api'
 import { Ic } from './ui'
@@ -24,12 +24,12 @@ export default function Sidebar({ page, setPage }) {
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-logos">
-          <div className="ltile"><img className="lflip" src="/brand/qbo.png" alt="QuickBooks" /></div>
+          <div className="ltile"><img className="lflip" src={import.meta.env.BASE_URL + "brand/qbo.png"} alt="QuickBooks" /></div>
           <div className="brand-arrow">
             <span className="ba-line" />
             <i className="ti ti-caret-right-filled ba-head" />
           </div>
-          <div className="ltile"><img className="lflip d2" src="/brand/wafeq.png" alt="Wafeq" /></div>
+          <div className="ltile"><img className="lflip d2" src={import.meta.env.BASE_URL + "brand/wafeq.png"} alt="Wafeq" /></div>
         </div>
       </div>
 
@@ -54,7 +54,7 @@ export default function Sidebar({ page, setPage }) {
           {open && (
             <div className="co-drop">
               {companies.length === 0 && (
-                <div className="co-opt" style={{ color: 'var(--tx3)' }}>No companies — connect one</div>
+                <div className="co-opt" style={{ color: 'var(--tx3)' }}>No companies â€” connect one</div>
               )}
               {companies.map((co) => (
                 <div key={co.realm_id}
