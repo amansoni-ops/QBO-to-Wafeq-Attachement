@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 // Dev proxy → Flask backend (port 8000). In production, `vite build` output
 // goes into Flask's static folder and is served same-origin, so proxy is dev-only.
 export default defineConfig({
+  base: '/qbo-wafeq/',  
   plugins: [react()],
   build: {
     outDir: 'dist',
