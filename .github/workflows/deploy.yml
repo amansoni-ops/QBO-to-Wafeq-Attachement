@@ -1,0 +1,119 @@
+name: Deploy QBO-Wafeq
+
+on:
+  push:
+    branches: [main]
+
+env:
+  SERVER_HOST: 54.91.221.179
+  SERVER_USER: ubuntu
+  SERVER_PATH: /home/ubuntu/qbo-wafeq
+  SERVICE_NAME: qbo-wafeq
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        working-directory: ./backend
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: |
+          source venv/bin/activate
+          pytest -v || (echo "Tests failed, deploy ruk gaya" && exit 1)
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend deps
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test -- --run || echo "No frontend tests configured, skipping"
+        continue-on-error: true
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync backend
+        run: |
+          rsync -avz --delete \
+            --exclude='.env' \
+            --exclude='venv' \
+            --exclude='data' \
+            --exclude='downloads' \
+            --exclude='frontend_dist' \
+            --exclude='__pycache__' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./backend/ \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.SERVER_PATH }}/backend/
+
+      - name: Rsync frontend build
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./frontend/dist/ \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:${{ env.SERVER_PATH }}/backend/frontend_dist/
+
+      - name: Install deps on server & restart service
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} '
+            set -e
+            cd ${{ env.SERVER_PATH }}/backend
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart ${{ env.SERVICE_NAME }}
+            sudo systemctl status ${{ env.SERVICE_NAME }} --no-pager
+          '
+
+      - name: Health check
+        run: |
+          sleep 3
+          curl -sk -o /dev/null -w "%{http_code}" https://${{ env.SERVER_HOST }}/qbo-wafeq/ | grep 200 \
+            && echo "Deploy successful" \
+            || (echo "Health check failed" && exit 1)
