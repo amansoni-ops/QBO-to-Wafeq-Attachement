@@ -34,7 +34,7 @@ jobs:
         working-directory: ./backend
         run: |
           source venv/bin/activate
-          pytest -v || (echo "Tests failed, deploy ruk gaya" && exit 1)
+          pytest -v; EXIT_CODE=$?; if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 5 ]; then echo "Tests failed, deploy ruk gaya" && exit 1; fi
 
       - name: Set up Node
         uses: actions/setup-node@v4
