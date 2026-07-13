@@ -927,6 +927,112 @@ def api_manual_match():
 
 
 # ---------------------------------------------------------------------------
+# API — Attachment → Wafeq mapping (flattened, one row per file)
+# ---------------------------------------------------------------------------
+
+def _mapping_reason(txn: dict, att: dict) -> str:
+    """Human-readable reason why this attachment isn't (yet) linked in Wafeq."""
+    ms = txn.get("match_status")
+    if ms == "no_match":
+        return txn.get("match_note") or "No matching Wafeq record found (no external_id/doc number/contact+date/amount+date match)"
+    if ms == "duplicate":
+        return txn.get("match_note") or "Multiple possible Wafeq matches found — needs manual review"
+    # matched or manual — check the file-level upload status
+    st = att.get("upload_status")
+    if st == "success":
+        return ""
+    if st == "failed":
+        return att.get("error") or "Upload to Wafeq failed"
+    if st == "skipped":
+        return att.get("error") or "Skipped — file not downloaded from QBO or already processed"
+    return "Matched but not yet uploaded (run Upload phase)"
+
+
+def _build_attachment_map(realm_id: str) -> list:
+    """
+    Flatten index into one row per attachment showing where each file landed
+    in Wafeq, plus WHY it didn't land if it's not linked.
+    """
+    from core.storage import load_index
+    idx   = load_index(realm_id)
+    bills = idx.get("bills", {})
+    rows  = []
+    for txn_id, txn in bills.items():
+        contact = txn.get("vendor_name") or txn.get("customer_name") or ""
+        for att in txn.get("attachments", []):
+            rows.append({
+                "doc_number":      txn.get("doc_number", ""),
+                "contact":         contact,
+                "file_name":       att.get("file_name", ""),
+                "wafeq_type":      txn.get("wafeq_type", "") if txn.get("match_status") in ("matched", "manual") else "",
+                "wafeq_record_id": txn.get("wafeq_bill_id") or "",
+                "upload_status":   att.get("upload_status", "pending"),
+                "reason":          _mapping_reason(txn, att),
+            })
+    # Sort: failed first, then pending, then success — so problems surface on top
+    order = {"failed": 0, "pending": 1, "skipped": 2, "success": 3}
+    rows.sort(key=lambda r: (order.get(r["upload_status"], 9), r["doc_number"]))
+    return rows
+
+
+@app.route("/api/attachment-map/<realm_id>", methods=["GET"])
+def api_attachment_map(realm_id: str):
+    """JSON list of attachment→Wafeq mappings. ?format=xlsx for Excel download."""
+    rows = _build_attachment_map(realm_id)
+
+    fmt = request.args.get("format", "json")
+    if fmt == "xlsx":
+        import io
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Attachment Mapping"
+
+        hdr   = Font(name="Arial", bold=True, color="FFFFFF")
+        hfill = PatternFill("solid", fgColor="1F3864")
+        ctr   = Alignment(horizontal="center", vertical="center")
+        ok_fill   = PatternFill("solid", fgColor="C6EFCE")
+        fail_fill = PatternFill("solid", fgColor="FFC7CE")
+
+        headers = ["Doc Number", "Vendor/Customer", "File Name",
+                   "Wafeq Type", "Wafeq Record ID", "Upload Status", "Reason"]
+        for ci, h in enumerate(headers, 1):
+            c = ws.cell(row=1, column=ci, value=h)
+            c.font = hdr; c.fill = hfill; c.alignment = ctr
+
+        for ri, row in enumerate(rows, 2):
+            vals = [row["doc_number"], row["contact"], row["file_name"],
+                    row["wafeq_type"], row["wafeq_record_id"], row["upload_status"], row["reason"]]
+            for ci, v in enumerate(vals, 1):
+                cell = ws.cell(row=ri, column=ci, value=v)
+                cell.font = Font(name="Arial", size=10)
+            st = row["upload_status"]
+            if st == "success":
+                ws.cell(row=ri, column=6).fill = ok_fill
+            elif st == "failed":
+                ws.cell(row=ri, column=6).fill = fail_fill
+
+        widths = [16, 28, 32, 14, 30, 14, 45]
+        for ci, w in enumerate(widths, 1):
+            ws.column_dimensions[chr(64 + ci)].width = w
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = f"A1:G{max(1, len(rows) + 1)}"
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        return Response(
+            buf.getvalue(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=attachment_mapping_{realm_id}.xlsx"},
+        )
+
+    return jsonify({"realm_id": realm_id, "count": len(rows), "rows": rows})
+
+
+# ---------------------------------------------------------------------------
 # API — Export migration report as Excel (2 sheets: Bills + Attachments)
 # ---------------------------------------------------------------------------
 
@@ -1366,4 +1472,3 @@ if __name__ == "__main__":
     print(f'  ngrok    : ngrok http {FLASK_PORT} --request-header-add "ngrok-skip-browser-warning:true"')
     print("=" * 55 + "\n")
     app.run(host="0.0.0.0", port=FLASK_PORT, debug=False, use_reloader=False)
-    

@@ -43,7 +43,8 @@ export default function Mapping() {
         (r.doc_number || '').toLowerCase().includes(needle) ||
         (r.contact || '').toLowerCase().includes(needle) ||
         (r.file_name || '').toLowerCase().includes(needle) ||
-        (r.wafeq_record_id || '').toLowerCase().includes(needle)
+        (r.wafeq_record_id || '').toLowerCase().includes(needle) ||
+        (r.reason || '').toLowerCase().includes(needle)
       )
     })
   }, [rows, q, filter])
@@ -109,6 +110,7 @@ export default function Mapping() {
                     <th>Wafeq Type</th>
                     <th>Wafeq Record ID</th>
                     <th>Upload Status</th>
+                    <th>Reason</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -124,11 +126,15 @@ export default function Mapping() {
                           {r.wafeq_record_id || <span style={{ color: 'var(--danger)' }}>not linked</span>}
                         </td>
                         <td><span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span></td>
+                        <td style={{ fontSize: 12, color: r.reason ? 'var(--tx2)' : 'var(--tx3)', maxWidth: 320, whiteSpace: 'normal', wordBreak: 'break-word' }}
+                          title={r.reason || ''}>
+                          {r.reason || '—'}
+                        </td>
                       </tr>
                     )
                   })}
                   {!shown.length && (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--tx3)', padding: 20 }}>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--tx3)', padding: 20 }}>
                       No rows match your filter.</td></tr>
                   )}
                 </tbody>
