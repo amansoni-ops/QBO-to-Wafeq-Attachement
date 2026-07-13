@@ -79,10 +79,16 @@ def save_index(realm_id: str, data: dict):
 
 
 def clear_index(realm_id: str):
-    """Delete index.json for a company — used before re-fetch."""
+    """Delete index.json AND downloaded attachment files for a realm —
+    used before every fresh fetch so old data never lingers alongside new."""
     p = index_path(realm_id)
     if p.exists():
         p.unlink()
+    files_dir = company_files_dir(realm_id)
+    if files_dir.exists():
+        for f in files_dir.iterdir():
+            if f.is_file():
+                f.unlink()
 
 
 # ── File naming ───────────────────────────────────────────────────────────────

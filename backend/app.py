@@ -23,14 +23,19 @@ import requests
 from flask import Flask, request, jsonify, send_from_directory, Response, session
 from flask_cors import CORS
 
-# ── Logging — writes to app.log + console ─────────────────────────────────────
+# ── Logging — writes to app.log + console, auto-rotates daily, keeps 7 days ──
+from logging.handlers import TimedRotatingFileHandler
+
 _log_file = Path("app.log")
+_file_handler = TimedRotatingFileHandler(
+    _log_file, when="D", interval=1, backupCount=7, encoding="utf-8"
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler(_log_file, encoding="utf-8"),
+        _file_handler,
         logging.StreamHandler(),
     ]
 )
@@ -433,7 +438,10 @@ def api_fetch(realm_id: str):
         if not entity_types:
             entity_types = None  # invalid filter → fetch all
 
-    if clear and not retry_downloads:
+    if not retry_downloads:
+        # Every fresh fetch wipes previously fetched data first — old files +
+        # index never linger alongside the new run. Only a targeted
+        # retry_downloads (fixing failed files) skips this.
         clear_index(realm_id)
 
     q = queue.Queue()
