@@ -966,6 +966,7 @@ def _build_attachment_map(realm_id: str) -> list:
                 "file_name":       att.get("file_name", ""),
                 "wafeq_type":      txn.get("wafeq_type", "") if txn.get("match_status") in ("matched", "manual") else "",
                 "wafeq_record_id": txn.get("wafeq_bill_id") or "",
+                "wafeq_doc":       (txn.get("wafeq_record") or {}).get("doc_number", "") or "",
                 "upload_status":   att.get("upload_status", "pending"),
                 "reason":          _mapping_reason(txn, att),
             })
@@ -997,28 +998,28 @@ def api_attachment_map(realm_id: str):
         fail_fill = PatternFill("solid", fgColor="FFC7CE")
 
         headers = ["Doc Number", "Vendor/Customer", "File Name",
-                   "Wafeq Type", "Wafeq Record ID", "Upload Status", "Reason"]
+                   "Wafeq Type", "Wafeq Doc #", "Wafeq Record ID", "Upload Status", "Reason"]
         for ci, h in enumerate(headers, 1):
             c = ws.cell(row=1, column=ci, value=h)
             c.font = hdr; c.fill = hfill; c.alignment = ctr
 
         for ri, row in enumerate(rows, 2):
             vals = [row["doc_number"], row["contact"], row["file_name"],
-                    row["wafeq_type"], row["wafeq_record_id"], row["upload_status"], row["reason"]]
+                    row["wafeq_type"], row["wafeq_doc"], row["wafeq_record_id"], row["upload_status"], row["reason"]]
             for ci, v in enumerate(vals, 1):
                 cell = ws.cell(row=ri, column=ci, value=v)
                 cell.font = Font(name="Arial", size=10)
             st = row["upload_status"]
             if st == "success":
-                ws.cell(row=ri, column=6).fill = ok_fill
+                ws.cell(row=ri, column=7).fill = ok_fill
             elif st == "failed":
-                ws.cell(row=ri, column=6).fill = fail_fill
+                ws.cell(row=ri, column=7).fill = fail_fill
 
-        widths = [16, 28, 32, 14, 30, 14, 45]
+        widths = [16, 28, 32, 14, 16, 30, 14, 45]
         for ci, w in enumerate(widths, 1):
             ws.column_dimensions[chr(64 + ci)].width = w
         ws.freeze_panes = "A2"
-        ws.auto_filter.ref = f"A1:G{max(1, len(rows) + 1)}"
+        ws.auto_filter.ref = f"A1:H{max(1, len(rows) + 1)}"
 
         buf = io.BytesIO()
         wb.save(buf)

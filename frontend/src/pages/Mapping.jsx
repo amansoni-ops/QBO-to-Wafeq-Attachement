@@ -5,9 +5,9 @@ import { Ic } from '../components/ui'
 
 const STATUS_STYLE = {
   success: { color: 'var(--success)', label: 'success' },
-  failed:  { color: 'var(--danger)',  label: 'failed' },
-  pending: { color: 'var(--tx3)',     label: 'pending' },
-  skipped: { color: 'var(--tx3)',     label: 'skipped' },
+  failed: { color: 'var(--danger)', label: 'failed' },
+  pending: { color: 'var(--tx3)', label: 'pending' },
+  skipped: { color: 'var(--tx3)', label: 'skipped' },
 }
 
 export default function Mapping() {
@@ -44,6 +44,7 @@ export default function Mapping() {
         (r.contact || '').toLowerCase().includes(needle) ||
         (r.file_name || '').toLowerCase().includes(needle) ||
         (r.wafeq_record_id || '').toLowerCase().includes(needle) ||
+        (r.wafeq_doc || '').toLowerCase().includes(needle) ||
         (r.reason || '').toLowerCase().includes(needle)
       )
     })
@@ -83,9 +84,10 @@ export default function Mapping() {
           ) : (
             <>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-                <div className="inp-ico" style={{ flex: 1, minWidth: 220 }}>
+                <div className="inp-ico" style={{ flex: '1 1 100%', minWidth: 280, maxWidth: 520, marginBottom: 8 }}>
                   <Ic name="search" />
-                  <input placeholder="Search doc #, vendor, file name, Wafeq ID…"
+                  <input placeholder="Search doc #, vendor, file name, Wafeq doc/ID, reason…"
+                    style={{ width: '100%' }}
                     value={q} onChange={(e) => setQ(e.target.value)} />
                 </div>
                 {['all', 'success', 'failed', 'pending', 'skipped'].map((f) => (
@@ -108,6 +110,7 @@ export default function Mapping() {
                     <th>Vendor / Customer</th>
                     <th>File Name</th>
                     <th>Wafeq Type</th>
+                    <th>Wafeq Doc #</th>
                     <th>Wafeq Record ID</th>
                     <th>Upload Status</th>
                     <th>Reason</th>
@@ -122,8 +125,12 @@ export default function Mapping() {
                         <td>{r.contact || <span style={{ color: 'var(--tx3)' }}>—</span>}</td>
                         <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.file_name}</td>
                         <td>{r.wafeq_type || <span style={{ color: 'var(--tx3)' }}>—</span>}</td>
-                        <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                          {r.wafeq_record_id || <span style={{ color: 'var(--danger)' }}>not linked</span>}
+                        <td>{r.wafeq_doc || <span style={{ color: 'var(--tx3)' }}>—</span>}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--tx3)' }}
+                          title={r.wafeq_record_id || ''}>
+                          {r.wafeq_record_id
+                            ? r.wafeq_record_id.slice(0, 12) + '…'
+                            : <span style={{ color: 'var(--danger)' }}>not linked</span>}
                         </td>
                         <td><span style={{ color: st.color, fontWeight: 600 }}>{st.label}</span></td>
                         <td style={{ fontSize: 12, color: r.reason ? 'var(--tx2)' : 'var(--tx3)', maxWidth: 320, whiteSpace: 'normal', wordBreak: 'break-word' }}
@@ -134,7 +141,7 @@ export default function Mapping() {
                     )
                   })}
                   {!shown.length && (
-                    <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--tx3)', padding: 20 }}>
+                    <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--tx3)', padding: 20 }}>
                       No rows match your filter.</td></tr>
                   )}
                 </tbody>
