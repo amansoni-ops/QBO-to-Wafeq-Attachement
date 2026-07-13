@@ -66,6 +66,11 @@ CORS(app, supports_credentials=True)
 
 TOKENS_DIR.mkdir(exist_ok=True)
 
+# Auto-purge migration data older than 7 days (files + index.json only —
+# companies.json, tokens, users, logs are untouched)
+from core.cleanup import start_daily_cleanup_thread, purge_old_data
+start_daily_cleanup_thread(retention_days=7, interval_hours=24)
+
 
 # ---------------------------------------------------------------------------
 # Companies DB
@@ -578,6 +583,18 @@ def api_audit_log():
     limit    = int(request.args.get('limit', 500))
     username = request.args.get('user')
     return jsonify(get_audit_log(limit=limit, username=username))
+
+
+@app.route('/api/admin/cleanup', methods=['POST'])
+def api_manual_cleanup():
+    """Manually trigger the 7-day data retention purge (admin only)."""
+    if session.get('role') != 'admin':
+        return jsonify({'error': 'Admin only'}), 403
+    body = request.json or {}
+    retention_days = int(body.get('retention_days', 7))
+    result = purge_old_data(retention_days=retention_days)
+    log_action(session['user'], 'manual_cleanup', {'retention_days': retention_days, 'purged': result['purged']})
+    return jsonify({'ok': True, **result})
 
 @app.route('/api/admin/report', methods=['GET'])
 def api_admin_report():
