@@ -1,0 +1,27 @@
+{
+  "9130357670974406": {
+    "name": "PEMO PAYMENTS SERVICE PROVIDER L.L.C",
+    "country": "AE",
+    "environment": "production",
+    "realm_id": "9130357670974406",
+    "connected": true,
+    "stats": {},
+    "wafeq_keys": [
+      {
+        "id": "fcfb5705",
+        "name": "Developer",
+        "key": "APcaEkIr.YS03SjsD6jQE2toQWagrQsqPFhorVxKx"
+      }
+    ],
+    "wafeq_api_key": "APcaEkIr.YS03SjsD6jQE2toQWagrQsqPFhorVxKx",
+    "wafeq_key_name": "Developer"
+  },
+  "123145972425899": {
+    "name": "Mechpro Solutions AU",
+    "country": "AU",
+    "environment": "production",
+    "realm_id": "123145972425899",
+    "connected": true,
+    "stats": {}
+  }
+}
