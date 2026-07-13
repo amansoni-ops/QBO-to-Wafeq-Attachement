@@ -7,6 +7,7 @@ const NAV = [
   { id: 'migrate', label: 'Migrate', icon: 'arrows-transfer-up', c1: '#4f52d9', c2: '#7c3aed' },
   { id: 'companies', label: 'Companies', icon: 'building', c1: '#0d9e6e', c2: '#34d399', adminOnly: false },
   { id: 'report', label: 'Report', icon: 'chart-bar', c1: '#d97706', c2: '#fbbf24' },
+  { id: 'mapping', label: 'Mapping', icon: 'link', c1: '#0891b2', c2: '#22d3ee' },
   { id: 'admin', label: 'Admin', icon: 'shield-lock', c1: '#ea580c', c2: '#fb923c', adminOnly: true },
   { id: 'settings', label: 'Settings', icon: 'settings', c1: '#dc2626', c2: '#f87171' },
 ]

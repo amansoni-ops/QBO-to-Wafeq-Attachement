@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Migrate from './pages/Migrate'
 import Companies from './pages/Companies'
 import Report from './pages/Report'
+import Mapping from './pages/Mapping'
 import Admin from './pages/Admin'
 import Settings from './pages/Settings'
 
@@ -13,6 +14,7 @@ const TITLES = {
   migrate: { h: 'Migrate', sub: 'Fetch â†’ Match â†’ Upload attachments' },
   companies: { h: 'Companies', sub: 'QuickBooks connections & Wafeq keys' },
   report: { h: 'Report', sub: 'Migration summary & breakdown' },
+  mapping: { h: 'Mapping', sub: 'Which attachment went to which Wafeq record' },
   admin: { h: 'Admin', sub: 'Users & audit log' },
   settings: { h: 'Settings', sub: 'Account & appearance' },
 }
@@ -21,6 +23,7 @@ const PAGE_COLORS = {
   migrate: '#4f52d9',
   companies: '#0d9e6e',
   report: '#d97706',
+  mapping: '#0891b2',
   admin: '#ea580c',
   settings: '#dc2626',
 }
@@ -42,7 +45,7 @@ export default function App() {
 
   const c = curCompany()
   const t = TITLES[page] || TITLES.migrate
-  const Page = { migrate: Migrate, companies: Companies, report: Report, admin: Admin, settings: Settings }[page]
+  const Page = { migrate: Migrate, companies: Companies, report: Report, mapping: Mapping, admin: Admin, settings: Settings }[page]
 
   return (
     <div className="app">

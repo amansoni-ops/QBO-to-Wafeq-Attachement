@@ -35,6 +35,8 @@ export const api = {
 
   index: (rid) => jf("/api/index/" + rid),
   report: (rid) => jf("/api/report/" + rid),
+  attachmentMap: (rid) => jf("/api/attachment-map/" + rid),
+  attachmentMapXlsxUrl: (rid) => BASE + "/api/attachment-map/" + rid + "?format=xlsx",
   manualMatch: (realm_id, qb_bill_id, wafeq_bill_id, wafeq_type) =>
     jpost("/api/manual-match", { realm_id, qb_bill_id, wafeq_bill_id, wafeq_type }),
 
